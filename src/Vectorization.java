@@ -124,25 +124,12 @@ public class Vectorization
 	public static TreeMap<String, Integer> buildDictionary(HashMap<Integer, String> descriptions, int threshold) {
 		TreeMap<String, Integer> dictionary = new TreeMap<String, Integer>() ;
 		TreeMap<String, Integer> frequency = new TreeMap<String, Integer>() ;
-	
-		int nWords = 0 ;
+		List edictionary = new ArrayList();
+
 		
-		for(Map.Entry<Integer, String> pair: descriptions.entrySet()){
-			String str = pair.getValue().toLowerCase();
-			StringTokenizer token = new StringTokenizer(str,"-(){}[]/|.?!:;, <>?|\"`");
-			while(token.hasMoreTokens()){
-				String temp = token.nextToken();
-				if(frequency.containsKey(temp)){
-					Integer num;
-					num = frequency.get(temp);
-					num++;
-					frequency.replace(temp, num);
-				}
-				else{
-					frequency.put(temp,1);
-				}
-			}
-		}
+
+
+		
 		/*
 			word|word frequency
 		*/
@@ -156,12 +143,57 @@ public class Vectorization
 		}
 	}*/
 
-	for(Map.Entry<String, Integer> pair2 : frequency.entrySet()){
-		if( threshold < pair2.getValue()){
-				dictionary.put(pair2.getKey(),nWords);
-				nWords++;
+	try{ 
+		BufferedReader eread = new BufferedReader(new FileReader("edictionary"));
+		String s;
+  
+		while ((s = eread.readLine()) != null) {
+		  edictionary.add(s);
 		}
+
+		eread.close();
+	
+
+
+		for(Map.Entry<Integer, String> pair: descriptions.entrySet()){
+			String str = pair.getValue().toLowerCase();
+			StringTokenizer token = new StringTokenizer(str,"-(){}[]/|.?!:;, <>?|\"`");
+			while(token.hasMoreTokens()){
+				String temp = token.nextToken();
+				if(edictionary.contains(temp))
+					continue;
+				if(frequency.containsKey(temp)){
+					Integer num;
+					num = frequency.get(temp);
+					num++;
+					frequency.replace(temp, num);
+				}
+				else{
+					frequency.put(temp,1);
+				}
+			}
+		}
+
+		Integer nWords=0;
+
+		PrintWriter diction = new PrintWriter(new FileWriter("dictionary"));
+		for(Map.Entry<String, Integer> pair2 : frequency.entrySet()){
+			if( threshold < pair2.getValue()){
+				dictionary.put(pair2.getKey(),nWords);
+				diction.print(pair2.getKey());
+				diction.print(",");
+				diction.println(pair2.getValue());
+				nWords++;
+			}
+		}	
+	diction.close();
 	}
+	catch (IOException e) {
+		System.err.println(e) ;
+		System.exit(1) ;
+	}
+
+	
 
 		return dictionary ;
 	}
@@ -236,18 +268,18 @@ public class Vectorization
 		
 		try {
 			PrintWriter out = new PrintWriter(new FileWriter(config.getString("arff.filename"))) ;
-			PrintWriter diction = new PrintWriter(new FileWriter("dictionary"));
+			//PrintWriter diction = new PrintWriter(new FileWriter("dictionary"));
 			Set<String> dictionKey = dictionary.keySet();
 			out.println("@relation foodreport") ;
 			for (int i = 0 ; i < dictionary.keySet().size() ; i++){
 				out.println("@attribute c" + i +" numeric") ;
 			}
 
-			Iterator<String> k = dictionKey.iterator(); 
+			/*Iterator<String> k = dictionKey.iterator(); 
             while(k.hasNext()){                           
- 				diction.println(k.next(),dictionary.get(k.next));
+				 diction.print(k.next(),dictionary.get(k.next));
 			}
-			diction.close();
+			diction.close();*/
 
 		
 
@@ -255,6 +287,7 @@ public class Vectorization
 			out.println("@data") ;
 			for (Iterator<Integer> i = reportIDs.iterator() ; i.hasNext() ; ) {
 				Integer reportID = i.next().intValue() ;
+
 
 				double [] v = getVector(dictionary, descriptions.get(reportID)) ;
 				for (int j = 0 ; j < v.length ; j++)
