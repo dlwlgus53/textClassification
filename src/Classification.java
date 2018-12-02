@@ -53,6 +53,7 @@ public class Classification {
 
 	public static void showPredictionResult(FastVector predictions) {
 		double allCases = predictions.size() ;//전체경우의 수 필요없음
+		
 		double truePositive = 0 ;
 		double trueNegative = 0 ;
 		double falsePositive = 0 ;
@@ -96,7 +97,7 @@ public class Classification {
 		Instances data = new Instances(new BufferedReader(new FileReader(config.getString("arff.filename")))) ;
 		
 		data.setClassIndex(data.numAttributes() - 1);
-			//몇번째 값을 라벨로 볼건가(멘마지막에 중요한건지 아닌건지 넣을거다)
+			//몇번째 값을 라벨로 볼건가(멘마지막에 좋아한건지 아닌건지 넣을거다)
  
 		Instances[][] split = crossValidationSplit(data, 10);
 		Instances[] trainingSplits = split[0];

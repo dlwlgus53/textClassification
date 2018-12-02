@@ -1,6 +1,7 @@
 package BugSeverityPrediction ;
 
 import java.util.* ;
+import java.util.Map.Entry;
 import java.io.* ;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.DocumentBuilder;
@@ -10,7 +11,7 @@ import org.w3c.dom.NodeList;
 import org.w3c.dom.Node;
 import org.w3c.dom.Element;
 
-public class Vectorization
+public class VectorizationBag
 {
 	public static DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance() ;
 
@@ -88,9 +89,9 @@ public class Vectorization
 		return labels ;
 	}
 
-	public static HashMap<Integer, String> loadDescription(String fname, HashSet<Integer> reportIDs)
+	public static HashMap<Integer, List<String>> loadDescription(String fname, HashSet<Integer> reportIDs)
 	{
-		HashMap<Integer, String> descriptions = new HashMap<Integer, String>() ;
+		HashMap<Integer, List<String>> descriptions = new HashMap<Integer, List<String>>() ;
 
 		try {
 			DocumentBuilder dBuilder = factory.newDocumentBuilder();
@@ -108,9 +109,15 @@ public class Vectorization
 
 				//NodeList updates = report.getElementsByTagName("update") ;
 				//Element lastUpdate = (Element) updates.item(updates.getLength() - 1) ;
-				String description = report.getElementsByTagName("summary").item(0).getTextContent() ;
-				
-				descriptions.put(reportID, description) ;
+				List<String> tokens = new ArrayList<String>();
+				String description = report.getElementsByTagName("summary").item(0).getTextContent().toLowerCase();
+				StringTokenizer token = new StringTokenizer(description,"-(){}[]/|.?!:;, <>?|\"`");
+
+				while(token.hasMoreTokens()){
+					String temp = token.nextToken();
+					tokens.add(temp);
+			}	
+				descriptions.put(reportID, tokens) ;
 			}
 			dBuilder.reset() ;
 		} 
@@ -121,68 +128,73 @@ public class Vectorization
 		return descriptions ;
 	}
 
-	public static TreeMap<String, Integer> buildDictionary(HashMap<Integer, String> descriptions, int threshold) {
-		TreeMap<String, Integer> dictionary = new TreeMap<String, Integer>() ;
-		TreeMap<String, Integer> frequency = new TreeMap<String, Integer>() ;
-		List edictionary = new ArrayList();
-
+	public static int isThere(TreeMap<Integer,List<String>> bag, List<String>list){
+		int size = bag.size();
+		List<String> tokens = new ArrayList();
+		for(int i =0; i<size; i++){
+			tokens = bag.get(i);
+			if(tokens.get(0).equals(list.get(0))&&tokens.get(1).equals(list.get(1)))
+				return i;
+		}
 		
 
+		return -1;
+	}
 
-		
-		/*
-			word|word frequency
-		*/
-
-		// TO-DO: implement here
-		/*for(Map.Entry<String, Integer> pair : frequency.entrySet()){
-			String str = pair.getKey();
-				if(frequency.get(str)>threshold){
-					dictionary.put(str,nWords);
-					nWords++;
-		}
-	}*/
-
-	try{ 
-		BufferedReader eread = new BufferedReader(new FileReader("edictionary"));
-		String s;
-  
-		while ((s = eread.readLine()) != null) {
-		  edictionary.add(s);
-		}
-
-		eread.close();
 	
 
+	public static TreeMap<Integer, List<String>> buildDictionary(HashMap<Integer, List<String>> descriptions, int threshold) {
+		TreeMap<Integer,List<String>> dictionary = new TreeMap<Integer, List<String>>() ;
+		TreeMap<Integer, List<String>> bag = new TreeMap<Integer, List<String>>();
+		TreeMap<Integer, Integer> frequency = new TreeMap<Integer, Integer>();
 
-		for(Map.Entry<Integer, String> pair: descriptions.entrySet()){
-			String str = pair.getValue().toLowerCase();
-			StringTokenizer token = new StringTokenizer(str,"-(){}[]/|.?!:;, <>?|\"`");
-			while(token.hasMoreTokens()){
-				String temp = token.nextToken();
-				if(edictionary.contains(temp))
-					continue;
-				if(frequency.containsKey(temp)){
+	try{ 
+		
+		for (Map.Entry<Integer, List<String>> entry : descriptions.entrySet()) {
+			List<String> tokens = entry.getValue();//1번 설명 가져오기
+			Integer size  = tokens.size();
+			for(int i=0;i<size-2;i++){	
+				List<String> pair = new ArrayList<String>(2);
+				pair.add(tokens.get(i));
+				pair.add(tokens.get(i+1));
+				int index = isThere(bag,pair);//-1:there is no pair in bag
+				if(index!=-1){
 					Integer num;
-					num = frequency.get(temp);
+					num = frequency.get(index);
 					num++;
-					frequency.replace(temp, num);
+					frequency.replace(index, num);
 				}
 				else{
-					frequency.put(temp,1);
+					bag.put(bag.size(),pair);
+					frequency.put(frequency.size(),1);
 				}
 			}
 		}
+		
+		PrintWriter freq = new PrintWriter(new FileWriter("freqBag"));
+		for(Map.Entry<Integer, Integer> entry : frequency.entrySet()){
+				int index = entry.getKey();
+				freq.print(bag.get(index));
+				freq.print(",");
+				freq.println(frequency.get(index));
+		}	
+
+		freq.close();
+		
 
 		Integer nWords=0;
+		PrintWriter diction = new PrintWriter(new FileWriter("dictionaryBag"));
 
-		PrintWriter diction = new PrintWriter(new FileWriter("dictionary"));
-		for(Map.Entry<String, Integer> pair2 : frequency.entrySet()){
-			if( threshold < pair2.getValue()){
-				dictionary.put(pair2.getKey(),nWords);
-				diction.print(pair2.getKey());
+		for(Map.Entry<Integer, Integer> entry : frequency.entrySet()){
+			if( threshold < entry.getValue()){
+				int index = entry.getKey();
+				dictionary.put(nWords,bag.get(index));
+
+				diction.print(nWords);
 				diction.print(",");
-				diction.println(pair2.getValue());
+				diction.print(bag.get(index));
+				diction.print(",");
+				diction.println(frequency.get(index));
 				nWords++;
 			}
 		}	
@@ -198,26 +210,28 @@ public class Vectorization
 		return dictionary ;
 	}
 
-	public static double [] getVector(TreeMap<String, Integer> dictionary, String description) {
-		description = description.toLowerCase() ;
-		double [] v = new double[dictionary.keySet().size()] ;
+	public static double [] getVector(TreeMap<Integer,List<String>> bag, List<String> description) {
+		//description = description.toLowerCase() ;
+		double [] v = new double[bag.size()] ;
 		// TO-DO: implement here
 		//토커나이즈
 		//단어하나
 		//몇번 단어인지 알고 - >1로 바꾸기
-
-			StringTokenizer token = new StringTokenizer(description,"-(){}[]/|.?!:;, <>?|\"`");
-
-			while(token.hasMoreTokens()){
-				String temp = token.nextToken();
-				for(Map.Entry<String, Integer> pair:dictionary.entrySet()){
-				if(temp.equals(pair.getKey())){
-					v[pair.getValue()]=1;
-				}
-			}
+		
+		Integer size = description.size();
+			for(int i=0;i<size-2;i++){	
+				List<String> pair = new ArrayList<String>(2);
+				pair.add(description.get(i));
+				pair.add(description.get(i+1));//자 일단 들고왔다..
+				int index = isThere(bag,pair);
+				if(index!=-1)
+					v[index]=1;
 		}
+
 		return v ;
 	}
+
+	
 
 	public static PropertiesConfiguration loadConfig(String fname) 
 	{
@@ -232,22 +246,25 @@ public class Vectorization
 		return config ;
 	}
 
+	
+	
+
 
 	public static void main(String[] args)
 	{
 		HashSet<Integer> 			reportIDs ;
 		HashMap<Integer, Boolean>	labels ;
-		HashMap<Integer, String> 	descriptions ;
-		TreeMap<String, Integer> 	dictionary ;
+		HashMap<Integer, List<String>> 	descriptions ;
+		TreeMap<Integer,List<String>> 	dictionary ;
 		
 
 		PropertiesConfiguration config = loadConfig("config.properties") ;
 
-		reportIDs = loadTargetReportIDs(config.getString("data.dir"), config.getString("data.module")) ;
-		labels = loadSeverityLabel(config.getString("data.dir") , reportIDs) ; //severity
-		descriptions = loadDescription(config.getString("data.dir") , reportIDs) ; //error message
+		reportIDs = loadTargetReportIDs(config.getString("bagdata.dir"), config.getString("data.module")) ;
+		labels = loadSeverityLabel(config.getString("bagdata.dir") , reportIDs) ; //severity
+		descriptions = loadDescription(config.getString("bagdata.dir") , reportIDs) ; //error message
 
-		dictionary = buildDictionary(descriptions, config.getInt("dictionary.minEvidences")) ;//build dictionary according 
+		dictionary = buildDictionary(descriptions, config.getInt("bagdicionary.minEvidences")) ;//build dictionary according 
 		//the description 
 
 		/* description[0]= " System crashes"
@@ -267,11 +284,10 @@ public class Vectorization
 		// Print out arff file
 		
 		try {
-			PrintWriter out = new PrintWriter(new FileWriter(config.getString("arff.filename"))) ;
+			PrintWriter out = new PrintWriter(new FileWriter(config.getString("arff.bagfilename"))) ;
 			//PrintWriter diction = new PrintWriter(new FileWriter("dictionary"));
-			Set<String> dictionKey = dictionary.keySet();
 			out.println("@relation foodreport") ;
-			for (int i = 0 ; i < dictionary.keySet().size() ; i++){
+			for (int i = 0 ; i < dictionary.size() ; i++){
 				out.println("@attribute c" + i +" numeric") ;
 			}
 
@@ -294,6 +310,7 @@ public class Vectorization
 					out.print(v[j] + ",") ;
 
 				out.println(labels.get(reportID) ? "good" : "bad") ;
+				
 		}
 			out.close() ;
 		}

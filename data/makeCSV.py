@@ -5,7 +5,7 @@ data = []
 test_data = []
 
 
-xmlFile = 'reviewData.xml'
+xmlFile = 'short_reviewData.xml'
 xmlData = open(xmlFile, 'w')
 xmlData.write('<short_desk>\n')
 
@@ -21,12 +21,14 @@ with open('Reviews.csv', mode='r') as review_file:
     for row in review_reader:
         if line_count == 0:
             fieldname = [id, row[0], row[1] ]
-            test_fieldname = [id, row[0], row[1],]
+            test_fieldname = [id, row[0], row[1]]
             line_count += 1
         else:
-            if line_count%2==0:
+            if line_count%30==0:
                 
-                xmlData.write("<report id =\"" + str(line_count/2) + "\">\n")
+                xmlData.write("<report id =\"" + str(int(line_count)) + "\">\n")
+                s = row[8]
+                row[8] = s.translate({ ord('&'): 'n'})
                 xmlData.write(" <summary>"+row[8]+"</summary>\n")
                 xmlData.write(" <score>"+row[6]+"</score>\n")
                 xmlData.write("</report>\n")
